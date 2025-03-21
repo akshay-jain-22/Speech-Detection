@@ -196,9 +196,9 @@ if add_radio == "Detector":
                 st.info("Analyzing image with available detection models...")
             else:
                 st.error("No detection models available for images")
-elif extension == "mp4" or extension == "MP4":
+        elif extension == "mp4" or extension == "MP4":
     try:
-        save_video(uploaded_file)
+            save_video(uploaded_file)
         if os.path.exists('temp/delete.mp4'):
             video_file = open('temp/delete.mp4', 'rb')
             video_bytes = video_file.read()
@@ -236,7 +236,7 @@ elif extension == "mp4" or extension == "MP4":
                             # Show overall result prominently
                             if probab > 0.5:
                                 st.error(f"⚠️ This video is likely FAKE (Confidence: {probab*100:.1f}%)")
-                            else:
+        else:
                                 st.success(f"✅ This video appears to be REAL (Confidence: {(1-probab)*100:.1f}%)")
 
                             # Show detailed results
@@ -256,13 +256,13 @@ elif extension == "mp4" or extension == "MP4":
                                 "text/csv",
                                 key='download-csv'
                             )
-                        else:
+        else:
                             st.warning("⚠️ Could not determine authenticity - all detections failed")
                     except Exception as e:
                         st.error(f"Error calculating results: {str(e)}")
-            else:
+                else:
                 st.error("No detection models available for videos")
-        else:
+            else:
             st.error("Failed to save video file")
     except Exception as e:
         st.error(f"Error processing video: {str(e)}")
@@ -272,17 +272,17 @@ elif extension == "mov" or extension == "MOV":
         save_video(uploaded_file)
         if os.path.exists('temp/delete.mp4'):
             video_file = open('temp/delete.mp4', 'rb')
-            video_bytes = video_file.read()
-            st.video(video_bytes)
+                        video_bytes = video_file.read()
+                        st.video(video_bytes)
             video_file.close()
 
             # Use all available video models automatically
             model_option = [model[:-6].title() for model in models_list_video]
             if model_option:
                 st.info("Analyzing video with available detection models...")
-            else:
+                else:
                 st.error("No detection models available for videos")
-        else:
+            else:
             st.error("Failed to save video file")
     except Exception as e:
         st.error(f"Error processing video: {str(e)}")
@@ -292,12 +292,12 @@ else:
 
 # Automatically run detection if models are available
 if model_option:
-    model_inference_probability_list = []
+                        model_inference_probability_list = []
     model_inference_time_list = []
     model_option = sorted(model_option)
 
     with st.spinner('Analyzing media for potential deepfakes...'):
-        for model in model_option:
+                        for model in model_option:
             model = model.lower()
             if extension in ["mp4", "MP4", "mov", "MOV"]:
                 model = model + "_video"
@@ -310,7 +310,7 @@ if model_option:
             model_inference_probability_list.append(model_inference_probability)
             model_inference_time_list.append(model_inference_time)
 
-        print(model_option, model_inference_probability_list, model_inference_time_list)
+                        print(model_option, model_inference_probability_list, model_inference_time_list)
 
     if model_option:
         try:
@@ -330,25 +330,25 @@ if model_option:
             st.error(f"Error calculating confidence: {str(e)}")
             pass
 
-        print("--------------------------------------------------")
-
+                        print("--------------------------------------------------")
+                        
     st.subheader("Detailed Analysis")
-
+                    
     if extension in ["mp4", "MP4", "mov", "MOV"]:
-        video_array = np.array([model_inference_probability_list, model_inference_time_list])
+                        video_array = np.array([model_inference_probability_list, model_inference_time_list])
         video_array_df = pd.DataFrame(video_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
-        video_array_df = video_array_df.T
+                        video_array_df = video_array_df.T
 
-        st.table(video_array_df)
-
-        csv_1 = convert_df(video_array_df)
+                        st.table(video_array_df)
+                    
+                        csv_1 = convert_df(video_array_df)
 
         st.download_button(
             label="Download detailed results as CSV ⬇️",
-            data=csv_1,
-            file_name='deepsafe_stats.csv',
-            mime='text/csv',
-        )
+                            data=csv_1,
+                            file_name='deepsafe_stats.csv',
+                            mime='text/csv',
+                        )
 
         # Replace matplotlib plotting with Streamlit plotting
         if model_inference_probability_list:
@@ -383,20 +383,20 @@ if model_option:
             st.balloons()
 
     else:
-        image_array = np.array([model_inference_probability_list, model_inference_time_list])
+                        image_array = np.array([model_inference_probability_list, model_inference_time_list])
         image_array_df = pd.DataFrame(image_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
-        image_array_df = image_array_df.T
+                        image_array_df = image_array_df.T
 
-        st.table(image_array_df)
+                        st.table(image_array_df)
 
-        csv_1 = convert_df(image_array_df)
+                        csv_1 = convert_df(image_array_df)
 
         st.download_button(
             label="Download detailed results as CSV ⬇️",
-            data=csv_1,
-            file_name='deepsafe_stats.csv',
-            mime='text/csv',
-        )
+                            data=csv_1,
+                            file_name='deepsafe_stats.csv',
+                            mime='text/csv',
+                        )
 
         # Replace matplotlib plotting with Streamlit plotting
         if model_inference_probability_list:
@@ -973,7 +973,7 @@ elif add_radio == "About":
     This project is licensed under the MIT License - see the LICENSE file for details.
     """)
 # Clean up at the end
-clean()
+                    clean()
 
 # Helper function to open links in a new tab
 def open_link_in_new_tab(url, text):
