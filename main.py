@@ -85,6 +85,13 @@ for model_file in os.listdir("models"):
 print("Available video models:", models_list_video)
 print("Available image models:", models_list_image)
 
+# Example usage of importlib to import a model
+model_name = "example_model_image"  # Replace with actual model name
+try:
+    model = importlib.import_module(f"models.{model_name}")
+except ModuleNotFoundError as e:
+    st.error(f"Error: {e}. Please ensure the module '{model_name}' exists and is correctly named.")
+
 # this is needed to calculate total inference time
 start_time = time.time()
 start_time_formatted = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
