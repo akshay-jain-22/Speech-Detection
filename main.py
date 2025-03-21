@@ -1,11 +1,9 @@
-# @author Siddharth
-# @website https://siddharthksah.github.io/
+
 import streamlit as st
 import os
 import cv2
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from PIL import Image
 import time
 from utils.save_uploaded_video_temp import save_video
@@ -24,23 +22,18 @@ clean()
 
 # favicon and page configs
 favicon = './assets/icon.png'
-st.set_page_config(page_title='DeepSafe', page_icon = favicon, initial_sidebar_state = 'expanded')
+st.set_page_config(page_title='FakeSniff', page_icon = favicon, initial_sidebar_state = 'expanded')
 
 import warnings
 warnings.filterwarnings("ignore")
 
 # importing the necessary packages
-from audioop import add
 from datetime import datetime
-from distutils.util import rfc822_escape
 import random
 import csv
-from PIL import Image
-from skimage import transform
 import os
 import pandas as pd
 from statistics import mean
-from bokeh.models.widgets import Div
 import json
 import importlib
 import numpy as np
@@ -57,6 +50,11 @@ from utils.download_youtube_video import download_video
 from utils.del_module import delete_module
 from utils.delete_temp_on_reload import clear_temp_folder_and_reload
 clear_temp_folder_and_reload()
+
+# Helper function for links
+def open_link_in_new_tab(url, text):
+    st.markdown(f'<a href="{url}" target="_blank">{text}</a>', unsafe_allow_html=True)
+
 #references
 from utils.get_references_of_models import get_reference
 
@@ -146,7 +144,7 @@ if add_radio == "Detector":
 
     #introduction of the app
     st.write("""
-    ## DeepSafe : A Fully Open Source DeepFake Detection Platform 
+    ## FakeSniff
     """)
 
     #upload button for the input image
@@ -201,40 +199,91 @@ if add_radio == "Detector":
 
         elif extension == "mp4" or extension == "MP4":
             try:
-                save_video(uploaded_file)
+            save_video(uploaded_file)
                 if os.path.exists('temp/delete.mp4'):
-                    video_file = open('temp/delete.mp4', 'rb')
-                    video_bytes = video_file.read()
-                    st.video(video_bytes, start_time=0)
+            video_file = open('temp/delete.mp4', 'rb')
+            video_bytes = video_file.read()
+            st.video(video_bytes, start_time=0)
                     video_file.close()
 
                     # Use all available video models automatically
                     model_option = [model[:-6].title() for model in models_list_video]
                     if model_option:
                         st.info("Analyzing video with available detection models...")
-                    else:
-                        st.error("No detection models available for videos")
+                        
+                        # Run all available video models
+                        model_inference_probability_list = []
+                        model_inference_time_list = []
+                        model_name_list = []
+                        for model_name in models_list_video:
+                            try:
+                                model = importlib.import_module(f"models.{model_name}")
+                                with st.spinner(f'Running {model_name} model...'):
+                                    probability, inference_time = model.detect()
+                                    model_inference_probability_list.append(probability)
+                                    model_inference_time_list.append(inference_time)
+                                    model_name_list.append(model_name)
+                            except Exception as e:
+                                st.error(f"Error running {model_name}: {str(e)}")
+                                continue
+                                
+                        # Display results
+                        if model_inference_probability_list:
+                            try:
+                                valid_probabilities = [p for p in model_inference_probability_list if p > 0]
+                                if valid_probabilities:
+                                    probab = round(float(np.mean(valid_probabilities)), 5)
+                                    
+                                    # Show overall result prominently
+                                    if probab > 0.5:
+                                        st.error(f"⚠️ This video is likely FAKE (Confidence: {probab*100:.1f}%)")
+        else:
+                                        st.success(f"✅ This video appears to be REAL (Confidence: {(1-probab)*100:.1f}%)")
+                                        
+                                    # Show detailed results
+                                    results_df = pd.DataFrame({
+                                        'Model': model_name_list,
+                                        'Probability': model_inference_probability_list,
+                                        'Inference Time (s)': model_inference_time_list
+                                    })
+                                    st.dataframe(results_df)
+                                    
+                                    # Download results
+                                    csv = convert_df(results_df)
+                                    st.download_button(
+                                        "Download Results",
+                                        csv,
+                                        "video_analysis_results.csv",
+                                        "text/csv",
+                                        key='download-csv'
+                                    )
+        else:
+                                    st.warning("⚠️ Could not determine authenticity - all detections failed")
+                            except Exception as e:
+                                st.error(f"Error calculating results: {str(e)}")
                 else:
+                        st.error("No detection models available for videos")
+            else:
                     st.error("Failed to save video file")
             except Exception as e:
                 st.error(f"Error processing video: {str(e)}")
-
+        
         elif extension == "mov" or extension == "MOV":
             try:
                 save_video(uploaded_file)
                 if os.path.exists('temp/delete.mp4'):
                     video_file = open('temp/delete.mp4', 'rb')
-                    video_bytes = video_file.read()
-                    st.video(video_bytes)
+                        video_bytes = video_file.read()
+                        st.video(video_bytes)
                     video_file.close()
 
                     # Use all available video models automatically
                     model_option = [model[:-6].title() for model in models_list_video]
                     if model_option:
                         st.info("Analyzing video with available detection models...")
-                    else:
-                        st.error("No detection models available for videos")
                 else:
+                        st.error("No detection models available for videos")
+            else:
                     st.error("Failed to save video file")
             except Exception as e:
                 st.error(f"Error processing video: {str(e)}")
@@ -244,12 +293,12 @@ if add_radio == "Detector":
 
         # Automatically run detection if models are available
         if model_option:
-            model_inference_probability_list = []
+                        model_inference_probability_list = []
             model_inference_time_list = []
             model_option = sorted(model_option)
 
             with st.spinner('Analyzing media for potential deepfakes...'):
-                for model in model_option:
+                        for model in model_option:
                     model = model.lower()
                     if extension in ["mp4", "MP4", "mov", "MOV"]:
                         model = model + "_video"
@@ -262,7 +311,7 @@ if add_radio == "Detector":
                     model_inference_probability_list.append(model_inference_probability)
                     model_inference_time_list.append(model_inference_time)
 
-            print(model_option, model_inference_probability_list, model_inference_time_list)
+                        print(model_option, model_inference_probability_list, model_inference_time_list)
 
             if model_option:
                 try:
@@ -282,121 +331,107 @@ if add_radio == "Detector":
                     st.error(f"Error calculating confidence: {str(e)}")
                     pass
 
-                print("--------------------------------------------------")
+                        print("--------------------------------------------------")
+                        
+            st.subheader("Detailed Analysis")
+                    
+            if extension in ["mp4", "MP4", "mov", "MOV"]:
+                        video_array = np.array([model_inference_probability_list, model_inference_time_list])
+                video_array_df = pd.DataFrame(video_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
+                        
+                        video_array_df = video_array_df.T
 
-                st.subheader("Detailed Analysis")
+                        st.table(video_array_df)
+                    
+                        csv_1 = convert_df(video_array_df)
 
-                if extension in ["mp4", "MP4", "mov", "MOV"]:
-                    video_array = np.array([model_inference_probability_list, model_inference_time_list])
-                    video_array_df = pd.DataFrame(video_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
+                st.download_button(
+                    label="Download detailed results as CSV ⬇️",
+                            data=csv_1,
+                            file_name='deepsafe_stats.csv',
+                            mime='text/csv',
+                        )
 
-                    video_array_df = video_array_df.T
+                # Replace matplotlib plotting with Streamlit plotting
+                if model_inference_probability_list:
+                    # Create DataFrame for plotting
+                    plot_df = pd.DataFrame({
+                        'Model': model_option,
+                        'DeepFake Probability': model_inference_probability_list,
+                        'Inference Time': model_inference_time_list
+                    })
+                    
+                    # Plot DeepFake Probability
+                    st.subheader('DeepFake Probability VS Detectors')
+                    st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
+                    
+                    # Plot Inference Time
+                    st.subheader('Inference Time VS Detectors')
+                    st.bar_chart(plot_df.set_index('Model')['Inference Time'])
 
-                    st.table(video_array_df)
-
-                    csv_1 = convert_df(video_array_df)
-
+                    # Show detailed results table
+                    st.subheader("Detailed Analysis")
+                    st.dataframe(plot_df)
+                    
+                    # Download results
+                    csv = convert_df(plot_df)
                     st.download_button(
                         label="Download detailed results as CSV ⬇️",
-                        data=csv_1,
+                        data=csv,
                         file_name='deepsafe_stats.csv',
                         mime='text/csv',
                     )
+                    
+                    st.balloons()
 
-                    chart_data = pd.DataFrame(
-                        model_inference_probability_list,
-                        model_option)
+            else:
+                        image_array = np.array([model_inference_probability_list, model_inference_time_list])
+                image_array_df = pd.DataFrame(image_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
+                        
+                        image_array_df = image_array_df.T
 
-                    chart_data.rename(columns={chart_data.columns[0]: "DF Probability"}, inplace=True)
+                        st.table(image_array_df)
 
-                    chart_data = pd.DataFrame(
-                        model_inference_time_list,
-                        model_option)
+                        csv_1 = convert_df(image_array_df)
 
-                    chart_data.rename(columns={chart_data.columns[0]: "Inference Time"}, inplace=True)
+                st.download_button(
+                    label="Download detailed results as CSV ⬇️",
+                            data=csv_1,
+                            file_name='deepsafe_stats.csv',
+                            mime='text/csv',
+                        )
 
-                    fig, ax = plt.subplots()
-                    ax.set_title('DeepFake Probability VS Detectors')
+                # Replace matplotlib plotting with Streamlit plotting
+                if model_inference_probability_list:
+                    # Create DataFrame for plotting
+                    plot_df = pd.DataFrame({
+                        'Model': model_option,
+                        'DeepFake Probability': model_inference_probability_list,
+                        'Inference Time': model_inference_time_list
+                    })
+                    
+                    # Plot DeepFake Probability
+                    st.subheader('DeepFake Probability VS Detectors')
+                    st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
+                    
+                    # Plot Inference Time
+                    st.subheader('Inference Time VS Detectors')
+                    st.bar_chart(plot_df.set_index('Model')['Inference Time'])
 
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('DeepFake Probability')
-                    plt.ylim(0, 1)
-                    N = len(model_option)
-                    bars = ax.bar(model_option, model_inference_probability_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('Inference Time VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('Inference time in seconds')
-                    bars = ax.bar(model_option, model_inference_time_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
-
-                else:
-                    image_array = np.array([model_inference_probability_list, model_inference_time_list])
-                    image_array_df = pd.DataFrame(image_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
-
-                    image_array_df = image_array_df.T
-
-                    st.table(image_array_df)
-
-                    csv_1 = convert_df(image_array_df)
-
+                    # Show detailed results table
+                    st.subheader("Detailed Analysis")
+                    st.dataframe(plot_df)
+                    
+                    # Download results
+                    csv = convert_df(plot_df)
                     st.download_button(
                         label="Download detailed results as CSV ⬇️",
-                        data=csv_1,
+                        data=csv,
                         file_name='deepsafe_stats.csv',
                         mime='text/csv',
                     )
-
-                    chart_data = pd.DataFrame(
-                        model_inference_probability_list,
-                        model_option)
-
-                    chart_data.rename(columns={chart_data.columns[0]: "DF Probability"}, inplace=True)
-
-                    chart_data = pd.DataFrame(
-                        model_inference_time_list,
-                        model_option)
-
-                    chart_data.rename(columns={chart_data.columns[0]: "Inference Time"}, inplace=True)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('DeepFake Probability VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('DeepFake Probability')
-                    plt.ylim(0, 1)
-                    N = len(model_option)
-                    bars = ax.bar(model_option, model_inference_probability_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('Inference Time VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('Inference time in seconds')
-                    bars = ax.bar(model_option, model_inference_time_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
-
-                st.balloons()
+                    
+                    st.balloons()
 
     elif url != "":
         did_user_upload_file = False
@@ -547,43 +582,37 @@ if add_radio == "Detector":
                             mime='text/csv',
                         )
 
-                        chart_data = pd.DataFrame(
-                            model_inference_probability_list,
-                            model_option)
+                        # Replace matplotlib plotting with Streamlit plotting
+                        if model_inference_probability_list:
+                            # Create DataFrame for plotting
+                            plot_df = pd.DataFrame({
+                                'Model': model_option,
+                                'DeepFake Probability': model_inference_probability_list,
+                                'Inference Time': model_inference_time_list
+                            })
+                            
+                            # Plot DeepFake Probability
+                            st.subheader('DeepFake Probability VS Detectors')
+                            st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
+                            
+                            # Plot Inference Time
+                            st.subheader('Inference Time VS Detectors')
+                            st.bar_chart(plot_df.set_index('Model')['Inference Time'])
 
-                        chart_data.rename(columns={chart_data.columns[0]: "DF Probability"}, inplace=True)
-
-                        chart_data = pd.DataFrame(
-                            model_inference_time_list,
-                            model_option)
-
-                        chart_data.rename(columns={chart_data.columns[0]: "Inference Time"}, inplace=True)
-
-                        fig, ax = plt.subplots()
-                        ax.set_title('DeepFake Probability VS Detectors')
-
-                        ax.set_xlabel('Detector')
-                        ax.set_ylabel('DeepFake Probability')
-                        plt.ylim(0, 1)
-                        N = len(model_option)
-                        bars = ax.bar(model_option, model_inference_probability_list)
-                        if N > 1:
-                            for i, b in enumerate(bars):
-                                b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                        st.pyplot(fig)
-
-                        fig, ax = plt.subplots()
-                        ax.set_title('Inference Time VS Detectors')
-
-                        ax.set_xlabel('Detector')
-                        ax.set_ylabel('Inference time in seconds')
-                        bars = ax.bar(model_option, model_inference_time_list)
-                        if N > 1:
-                            for i, b in enumerate(bars):
-                                b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                        st.pyplot(fig)
+                            # Show detailed results table
+                            st.subheader("Detailed Analysis")
+                            st.dataframe(plot_df)
+                            
+                            # Download results
+                            csv = convert_df(plot_df)
+                            st.download_button(
+                                label="Download detailed results as CSV ⬇️",
+                                data=csv,
+                                file_name='deepsafe_stats.csv',
+                                mime='text/csv',
+                            )
+                            
+                            st.balloons()
 
                     else:
                         image_array = np.array([model_inference_probability_list, model_inference_time_list])
@@ -602,43 +631,37 @@ if add_radio == "Detector":
                             mime='text/csv',
                         )
 
-                        chart_data = pd.DataFrame(
-                            model_inference_probability_list,
-                            model_option)
+                        # Replace matplotlib plotting with Streamlit plotting
+                        if model_inference_probability_list:
+                            # Create DataFrame for plotting
+                            plot_df = pd.DataFrame({
+                                'Model': model_option,
+                                'DeepFake Probability': model_inference_probability_list,
+                                'Inference Time': model_inference_time_list
+                            })
+                            
+                            # Plot DeepFake Probability
+                            st.subheader('DeepFake Probability VS Detectors')
+                            st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
+                            
+                            # Plot Inference Time
+                            st.subheader('Inference Time VS Detectors')
+                            st.bar_chart(plot_df.set_index('Model')['Inference Time'])
 
-                        chart_data.rename(columns={chart_data.columns[0]: "DF Probability"}, inplace=True)
-
-                        chart_data = pd.DataFrame(
-                            model_inference_time_list,
-                            model_option)
-
-                        chart_data.rename(columns={chart_data.columns[0]: "Inference Time"}, inplace=True)
-
-                        fig, ax = plt.subplots()
-                        ax.set_title('DeepFake Probability VS Detectors')
-
-                        ax.set_xlabel('Detector')
-                        ax.set_ylabel('DeepFake Probability')
-                        plt.ylim(0, 1)
-                        N = len(model_option)
-                        bars = ax.bar(model_option, model_inference_probability_list)
-                        if N > 1:
-                            for i, b in enumerate(bars):
-                                b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                        st.pyplot(fig)
-
-                        fig, ax = plt.subplots()
-                        ax.set_title('Inference Time VS Detectors')
-
-                        ax.set_xlabel('Detector')
-                        ax.set_ylabel('Inference time in seconds')
-                        bars = ax.bar(model_option, model_inference_time_list)
-                        if N > 1:
-                            for i, b in enumerate(bars):
-                                b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                        st.pyplot(fig)
+                            # Show detailed results table
+                            st.subheader("Detailed Analysis")
+                            st.dataframe(plot_df)
+                            
+                            # Download results
+                            csv = convert_df(plot_df)
+                            st.download_button(
+                                label="Download detailed results as CSV ⬇️",
+                                data=csv,
+                                file_name='deepsafe_stats.csv',
+                                mime='text/csv',
+                            )
+                            
+                            st.balloons()
 
                     st.balloons()
         else:
@@ -706,43 +729,37 @@ if add_radio == "Detector":
                         mime='text/csv',
                     )
 
-                    chart_data = pd.DataFrame(
-                        model_inference_probability_list,
-                        model_option)
+                    # Replace matplotlib plotting with Streamlit plotting
+                    if model_inference_probability_list:
+                        # Create DataFrame for plotting
+                        plot_df = pd.DataFrame({
+                            'Model': model_option,
+                            'DeepFake Probability': model_inference_probability_list,
+                            'Inference Time': model_inference_time_list
+                        })
+                        
+                        # Plot DeepFake Probability
+                        st.subheader('DeepFake Probability VS Detectors')
+                        st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
+                        
+                        # Plot Inference Time
+                        st.subheader('Inference Time VS Detectors')
+                        st.bar_chart(plot_df.set_index('Model')['Inference Time'])
 
-                    chart_data.rename(columns={chart_data.columns[0]: "DF Probability"}, inplace=True)
-
-                    chart_data = pd.DataFrame(
-                        model_inference_time_list,
-                        model_option)
-
-                    chart_data.rename(columns={chart_data.columns[0]: "Inference Time"}, inplace=True)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('DeepFake Probability VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('DeepFake Probability')
-                    plt.ylim(0, 1)
-                    N = len(model_option)
-                    bars = ax.bar(model_option, model_inference_probability_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('Inference Time VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('Inference time in seconds')
-                    bars = ax.bar(model_option, model_inference_time_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
+                        # Show detailed results table
+                        st.subheader("Detailed Analysis")
+                        st.dataframe(plot_df)
+                        
+                        # Download results
+                        csv = convert_df(plot_df)
+                        st.download_button(
+                            label="Download detailed results as CSV ⬇️",
+                            data=csv,
+                            file_name='deepsafe_stats.csv',
+                            mime='text/csv',
+                        )
+                        
+                        st.balloons()
 
                 else:
                     image_array = np.array([model_inference_probability_list, model_inference_time_list])
@@ -761,43 +778,37 @@ if add_radio == "Detector":
                         mime='text/csv',
                     )
 
-                    chart_data = pd.DataFrame(
-                        model_inference_probability_list,
-                        model_option)
+                    # Replace matplotlib plotting with Streamlit plotting
+                    if model_inference_probability_list:
+                        # Create DataFrame for plotting
+                        plot_df = pd.DataFrame({
+                            'Model': model_option,
+                            'DeepFake Probability': model_inference_probability_list,
+                            'Inference Time': model_inference_time_list
+                        })
+                        
+                        # Plot DeepFake Probability
+                        st.subheader('DeepFake Probability VS Detectors')
+                        st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
+                        
+                        # Plot Inference Time
+                        st.subheader('Inference Time VS Detectors')
+                        st.bar_chart(plot_df.set_index('Model')['Inference Time'])
 
-                    chart_data.rename(columns={chart_data.columns[0]: "DF Probability"}, inplace=True)
-
-                    chart_data = pd.DataFrame(
-                        model_inference_time_list,
-                        model_option)
-
-                    chart_data.rename(columns={chart_data.columns[0]: "Inference Time"}, inplace=True)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('DeepFake Probability VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('DeepFake Probability')
-                    plt.ylim(0, 1)
-                    N = len(model_option)
-                    bars = ax.bar(model_option, model_inference_probability_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
-
-                    fig, ax = plt.subplots()
-                    ax.set_title('Inference Time VS Detectors')
-
-                    ax.set_xlabel('Detector')
-                    ax.set_ylabel('Inference time in seconds')
-                    bars = ax.bar(model_option, model_inference_time_list)
-                    if N > 1:
-                        for i, b in enumerate(bars):
-                            b.set_color(plt.cm.jet(1. * i / (N - 1)))
-
-                    st.pyplot(fig)
+                        # Show detailed results table
+                        st.subheader("Detailed Analysis")
+                        st.dataframe(plot_df)
+                        
+                        # Download results
+                        csv = convert_df(plot_df)
+                        st.download_button(
+                            label="Download detailed results as CSV ⬇️",
+                            data=csv,
+                            file_name='deepsafe_stats.csv',
+                            mime='text/csv',
+                        )
+                        
+                        st.balloons()
 
                 st.balloons()
 
@@ -931,12 +942,12 @@ elif add_radio == "Benchmark":
             # Save results to CSV
             csv_results = convert_df(results_df)
             st.download_button(
-                label="Download Benchmark Results as CSV ⬇️",
-                data=csv_results,
-                file_name='benchmark_results.csv',
-                mime='text/csv'
-            )
-            
+                        label="Download Benchmark Results as CSV ⬇️",
+                        data=csv_results,
+                        file_name='benchmark_results.csv',
+                        mime='text/csv'
+                    )
+                    
             st.write("### Benchmarking Completed")
             status_text.text("")
 
@@ -965,4 +976,8 @@ elif add_radio == "About":
     """)
 
 # Clean up at the end
-clean() 
+                    clean()
+
+# Add helper function for links
+def open_link_in_new_tab(url, text):
+    st.markdown(f'<a href="{url}" target="_blank">{text}</a>', unsafe_allow_html=True) 
