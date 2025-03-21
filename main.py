@@ -142,79 +142,48 @@ if add_radio == "Detector":
     model_option = "NaN"
     show_real_fake_button = False
 
-    #introduction of the app
-    st.write("""
-    ## FakeSniff
-    """)
+    # Introduction
+    st.write("## FakeSniff")
 
-    #upload button for the input image
-    uploaded_file = st.file_uploader("Choose the image/video", type=['jpg', 'png', 'jpeg', 'mp4', ".mov"])
-    url = ""
+    # Upload button
+    uploaded_file = st.file_uploader("Choose the image/video", type=['jpg', 'png', 'jpeg', 'mp4', 'mov'])
     url = st.text_input("Or paste the URL below", key="text")
 
     did_file_download = False
 
     if uploaded_file is not None:
         did_user_upload_file = True
-
-        #getting the file extension of the uploaded file
         file_name = uploaded_file.name
-        extension = file_name.split(".")[-1]
+        extension = file_name.split(".")[-1].lower()
 
-        if extension == "png" or extension == "PNG":
+        if extension in ["jpg", "jpeg", "png"]:
             uploaded_image = Image.open(uploaded_file)
             save_image(uploaded_file)
             st.image(uploaded_image, caption='Uploaded Image', use_column_width=True)
 
-            # Use all available image models automatically
+            # Use all image models automatically
             model_option = [model[:-6].title() for model in models_list_image]
             if model_option:
                 st.info("Analyzing image with available detection models...")
             else:
                 st.error("No detection models available for images")
 
-        elif extension == "jpeg" or extension == "JPEG":
-            uploaded_image = Image.open(uploaded_file)
-            save_image(uploaded_file)
-            st.image(uploaded_image, caption='Uploaded Image', use_column_width=True)
-
-            # Use all available image models automatically
-            model_option = [model[:-6].title() for model in models_list_image]
-            if model_option:
-                st.info("Analyzing image with available detection models...")
-            else:
-                st.error("No detection models available for images")
-
-        elif extension == "jpg" or extension == "JPG":
-            uploaded_image = Image.open(uploaded_file)
-            save_image(uploaded_file)
-            st.image(uploaded_image, caption='Uploaded Image', use_column_width=True)
-
-            # Use all available image models automatically
-            model_option = [model[:-6].title() for model in models_list_image]
-            if model_option:
-                st.info("Analyzing image with available detection models...")
-            else:
-                st.error("No detection models available for images")
-
-        elif extension == "mp4" or extension == "MP4":
+        elif extension in ["mp4", "mov"]:
             try:
-            save_video(uploaded_file)
+                save_video(uploaded_file)
                 if os.path.exists('temp/delete.mp4'):
-            video_file = open('temp/delete.mp4', 'rb')
-            video_bytes = video_file.read()
-            st.video(video_bytes, start_time=0)
-                    video_file.close()
+                    with open('temp/delete.mp4', 'rb') as video_file:
+                        video_bytes = video_file.read()
+                        st.video(video_bytes, start_time=0)
 
-                    # Use all available video models automatically
                     model_option = [model[:-6].title() for model in models_list_video]
                     if model_option:
                         st.info("Analyzing video with available detection models...")
-                        
-                        # Run all available video models
+
                         model_inference_probability_list = []
                         model_inference_time_list = []
                         model_name_list = []
+
                         for model_name in models_list_video:
                             try:
                                 model = importlib.import_module(f"models.{model_name}")
@@ -226,212 +195,99 @@ if add_radio == "Detector":
                             except Exception as e:
                                 st.error(f"Error running {model_name}: {str(e)}")
                                 continue
-                                
-                        # Display results
+
                         if model_inference_probability_list:
                             try:
                                 valid_probabilities = [p for p in model_inference_probability_list if p > 0]
                                 if valid_probabilities:
                                     probab = round(float(np.mean(valid_probabilities)), 5)
-                                    
-                                    # Show overall result prominently
                                     if probab > 0.5:
                                         st.error(f"⚠️ This video is likely FAKE (Confidence: {probab*100:.1f}%)")
-        else:
+                                    else:
                                         st.success(f"✅ This video appears to be REAL (Confidence: {(1-probab)*100:.1f}%)")
-                                        
-                                    # Show detailed results
+
                                     results_df = pd.DataFrame({
                                         'Model': model_name_list,
                                         'Probability': model_inference_probability_list,
                                         'Inference Time (s)': model_inference_time_list
                                     })
                                     st.dataframe(results_df)
-                                    
-                                    # Download results
+
                                     csv = convert_df(results_df)
-                                    st.download_button(
-                                        "Download Results",
-                                        csv,
-                                        "video_analysis_results.csv",
-                                        "text/csv",
-                                        key='download-csv'
-                                    )
-        else:
+                                    st.download_button("Download Results", csv, "video_analysis_results.csv", "text/csv", key='download-csv')
+                                else:
                                     st.warning("⚠️ Could not determine authenticity - all detections failed")
                             except Exception as e:
                                 st.error(f"Error calculating results: {str(e)}")
-                else:
+                    else:
                         st.error("No detection models available for videos")
-            else:
+                else:
                     st.error("Failed to save video file")
             except Exception as e:
                 st.error(f"Error processing video: {str(e)}")
-        
-        elif extension == "mov" or extension == "MOV":
-            try:
-                save_video(uploaded_file)
-                if os.path.exists('temp/delete.mp4'):
-                    video_file = open('temp/delete.mp4', 'rb')
-                        video_bytes = video_file.read()
-                        st.video(video_bytes)
-                    video_file.close()
 
-                    # Use all available video models automatically
-                    model_option = [model[:-6].title() for model in models_list_video]
-                    if model_option:
-                        st.info("Analyzing video with available detection models...")
-                else:
-                        st.error("No detection models available for videos")
-            else:
-                    st.error("Failed to save video file")
-            except Exception as e:
-                st.error(f"Error processing video: {str(e)}")
         else:
             st.error("Unsupported file format")
             model_option = []
 
-        # Automatically run detection if models are available
-        if model_option:
-                        model_inference_probability_list = []
+        # Automatic detection
+        if isinstance(model_option, list) and model_option:
+            model_inference_probability_list = []
             model_inference_time_list = []
-            model_option = sorted(model_option)
+            sorted_model_option = sorted(model_option)
 
             with st.spinner('Analyzing media for potential deepfakes...'):
-                        for model in model_option:
-                    model = model.lower()
-                    if extension in ["mp4", "MP4", "mov", "MOV"]:
-                        model = model + "_video"
+                for model_name in sorted_model_option:
+                    mod = model_name.lower()
+                    mod += "_video" if extension in ["mp4", "mov"] else "_image"
+
+                    try:
+                        model = importlib.import_module("models." + mod)
+                        probability, inference_time = model.detect()
+                        model_inference_probability_list.append(probability)
+                        model_inference_time_list.append(inference_time)
+                    except Exception as e:
+                        st.error(f"Error running {model_name}: {str(e)}")
+                        continue
+
+            try:
+                valid_probabilities = [p for p in model_inference_probability_list if p > 0]
+                if valid_probabilities:
+                    probab = round(float(np.mean(valid_probabilities)), 5)
+                    if probab > 0.5:
+                        st.error(f"⚠️ This media is likely FAKE (Confidence: {probab*100:.1f}%)")
                     else:
-                        model = model + "_image"
+                        st.success(f"✅ This media appears to be REAL (Confidence: {(1-probab)*100:.1f}%)")
+                else:
+                    st.warning("⚠️ Could not determine authenticity - detection models failed")
+            except Exception as e:
+                st.error(f"Error calculating confidence: {str(e)}")
 
-                    print(model)
-                    model = importlib.import_module("models." + model)
-                    model_inference_probability, model_inference_time = model.detect()
-                    model_inference_probability_list.append(model_inference_probability)
-                    model_inference_time_list.append(model_inference_time)
-
-                        print(model_option, model_inference_probability_list, model_inference_time_list)
-
-            if model_option:
-                try:
-                    # Filter out failed detections (0.0 probabilities)
-                    valid_probabilities = [p for p in model_inference_probability_list if p > 0]
-                    if valid_probabilities:
-                        probab = round(float(mean(valid_probabilities)), 5)
-                        
-                        # Show overall result prominently
-                        if probab > 0.5:
-                            st.error(f"⚠️ This media is likely FAKE (Confidence: {probab*100:.1f}%)")
-                        else:
-                            st.success(f"✅ This media appears to be REAL (Confidence: {(1-probab)*100:.1f}%)")
-                    else:
-                        st.warning("⚠️ Could not determine authenticity - detection models failed")
-                except Exception as e:
-                    st.error(f"Error calculating confidence: {str(e)}")
-                    pass
-
-                        print("--------------------------------------------------")
-                        
             st.subheader("Detailed Analysis")
-                    
-            if extension in ["mp4", "MP4", "mov", "MOV"]:
-                        video_array = np.array([model_inference_probability_list, model_inference_time_list])
-                video_array_df = pd.DataFrame(video_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
-                        
-                        video_array_df = video_array_df.T
 
-                        st.table(video_array_df)
-                    
-                        csv_1 = convert_df(video_array_df)
+            result_df = pd.DataFrame({
+                'Model': sorted_model_option,
+                'DeepFake Probability': model_inference_probability_list,
+                'Inference Time (s)': model_inference_time_list
+            })
+            st.dataframe(result_df)
 
-                st.download_button(
-                    label="Download detailed results as CSV ⬇️",
-                            data=csv_1,
-                            file_name='deepsafe_stats.csv',
-                            mime='text/csv',
-                        )
+            csv = convert_df(result_df)
+            st.download_button(
+                label="Download detailed results as CSV ⬇️",
+                data=csv,
+                file_name='deepsafe_stats.csv',
+                mime='text/csv',
+            )
 
-                # Replace matplotlib plotting with Streamlit plotting
-                if model_inference_probability_list:
-                    # Create DataFrame for plotting
-                    plot_df = pd.DataFrame({
-                        'Model': model_option,
-                        'DeepFake Probability': model_inference_probability_list,
-                        'Inference Time': model_inference_time_list
-                    })
-                    
-                    # Plot DeepFake Probability
-                    st.subheader('DeepFake Probability VS Detectors')
-                    st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
-                    
-                    # Plot Inference Time
-                    st.subheader('Inference Time VS Detectors')
-                    st.bar_chart(plot_df.set_index('Model')['Inference Time'])
+            # Plot
+            st.subheader('DeepFake Probability VS Detectors')
+            st.bar_chart(result_df.set_index('Model')['DeepFake Probability'])
 
-                    # Show detailed results table
-                    st.subheader("Detailed Analysis")
-                    st.dataframe(plot_df)
-                    
-                    # Download results
-                    csv = convert_df(plot_df)
-                    st.download_button(
-                        label="Download detailed results as CSV ⬇️",
-                        data=csv,
-                        file_name='deepsafe_stats.csv',
-                        mime='text/csv',
-                    )
-                    
-                    st.balloons()
+            st.subheader('Inference Time VS Detectors')
+            st.bar_chart(result_df.set_index('Model')['Inference Time (s)'])
 
-            else:
-                        image_array = np.array([model_inference_probability_list, model_inference_time_list])
-                image_array_df = pd.DataFrame(image_array, columns=model_option, index=["DF Probability", "Inference Time in seconds"])
-                        
-                        image_array_df = image_array_df.T
-
-                        st.table(image_array_df)
-
-                        csv_1 = convert_df(image_array_df)
-
-                st.download_button(
-                    label="Download detailed results as CSV ⬇️",
-                            data=csv_1,
-                            file_name='deepsafe_stats.csv',
-                            mime='text/csv',
-                        )
-
-                # Replace matplotlib plotting with Streamlit plotting
-                if model_inference_probability_list:
-                    # Create DataFrame for plotting
-                    plot_df = pd.DataFrame({
-                        'Model': model_option,
-                        'DeepFake Probability': model_inference_probability_list,
-                        'Inference Time': model_inference_time_list
-                    })
-                    
-                    # Plot DeepFake Probability
-                    st.subheader('DeepFake Probability VS Detectors')
-                    st.bar_chart(plot_df.set_index('Model')['DeepFake Probability'])
-                    
-                    # Plot Inference Time
-                    st.subheader('Inference Time VS Detectors')
-                    st.bar_chart(plot_df.set_index('Model')['Inference Time'])
-
-                    # Show detailed results table
-                    st.subheader("Detailed Analysis")
-                    st.dataframe(plot_df)
-                    
-                    # Download results
-                    csv = convert_df(plot_df)
-                    st.download_button(
-                        label="Download detailed results as CSV ⬇️",
-                        data=csv,
-                        file_name='deepsafe_stats.csv',
-                        mime='text/csv',
-                    )
-                    
-                    st.balloons()
+            st.balloons()
 
     elif url != "":
         did_user_upload_file = False
@@ -976,7 +832,7 @@ elif add_radio == "About":
     """)
 
 # Clean up at the end
-                    clean()
+clean()
 
 # Add helper function for links
 def open_link_in_new_tab(url, text):
